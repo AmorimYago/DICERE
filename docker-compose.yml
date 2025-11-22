@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: dicere-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dicere_user
+      POSTGRES_PASSWORD: dicere_password
+      POSTGRES_DB: dicere
+    ports:
+      - "5432:5432"
+    volumes:
+      - dicere_data:/var/lib/postgresql/data
+
+volumes:
+  dicere_data:

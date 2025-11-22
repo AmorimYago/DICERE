@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Users (Parents/Caregivers and Children)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String   // bcrypt hashed password
+  role      String   @default("PAI") // PAI (parent/caregiver), CRIANCA (child)
+  parentId  String?  // Reference to parent user if role is CRIANCA
+  childProfile String? // Reference to Child profile if role is CRIANCA
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  parent       User?    @relation("ParentChildren", fields: [parentId], references: [id])
+  children     User[]   @relation("ParentChildren")
+  childAccess ChildAccess[]
+  comments    Comment[]
+  customImages Image[]
+  accounts     Account[]
+  sessions     Session[]
+}
+
+// NextAuth Account model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// NextAuth VerificationToken model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Children Profiles
+model Child {
+  id          String   @id @default(cuid())
+  name        String
+  birthDate   DateTime?
+  profilePhoto String?  // S3 key for profile photo
+  notes       String?  // Additional information about the child
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  childAccess ChildAccess[]
+  sequences   Sequence[]
+  reports     Report[]
+}
+
+// Many-to-Many relationship between Users and Children
+model ChildAccess {
+  id       String @id @default(cuid())
+  userId   String
+  childId  String
+  role     String @default("caregiver") // caregiver, therapist, teacher
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, childId])
+}
+
+// Communication Categories (General, Food, Beverages, etc.)
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique // GENERAL, FOOD, BEVERAGES, etc.
+  displayName String   // "Geral", "Comida", "Bebidas", etc.
+  icon        String   // Icon name from lucide-react
+  color       String   // Background color for category
+  order       Int      // Display order
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  images Image[]
+}
+
+// Images (both default and custom uploaded by parents)
+model Image {
+  id          String   @id @default(cuid())
+  name        String   // Display name for the image
+  imageUrl    String   // S3 key or URL for the image
+  audioUrl    String?  // Optional custom audio file (S3 key)
+  categoryId  String
+  isCustom    Boolean  @default(false) // true for user-uploaded images
+  uploadedBy  String?  // User ID who uploaded (if custom)
+  order       Int      // Display order within category
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  uploader     User?    @relation(fields: [uploadedBy], references: [id])
+  sequenceItems SequenceItem[]
+}
+
+// Communication Sequences (log of what children communicate)
+model Sequence {
+  id        String   @id @default(cuid())
+  childId   String
+  timestamp DateTime @default(now())
+  
+  // Relationships
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  items SequenceItem[]
+  comments Comment[]
+}
+
+// Individual items within a sequence (ordered list of images)
+model SequenceItem {
+  id         String @id @default(cuid())
+  sequenceId String
+  imageId    String
+  order      Int    // Position in the sequence (0, 1, 2, ...)
+  
+  // Relationships
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  image    Image    @relation(fields: [imageId], references: [id])
+  
+  @@unique([sequenceId, order])
+}
+
+// Daily Reports
+model Report {
+  id          String   @id @default(cuid())
+  childId     String
+  date        DateTime // Date for the report (YYYY-MM-DD)
+  totalSequences Int   @default(0)
+  totalImages    Int   @default(0)
+  mostUsedWords  String[] @default([]) // Array of most frequently used words
+  generatedAt    DateTime @default(now())
+  
+  // Relationships
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+  
+  @@unique([childId, date])
+}
+
+// Caregiver Comments on Sequences
+model Comment {
+  id         String   @id @default(cuid())
+  sequenceId String
+  userId     String   // Caregiver who added the comment
+  content    String   // The comment text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relationships
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+}
