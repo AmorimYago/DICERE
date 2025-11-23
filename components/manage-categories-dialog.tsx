@@ -22,7 +22,7 @@ import {
   FolderPlus,
   Save,
   X,
-  Palette
+  Upload
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -43,6 +43,7 @@ interface Category {
   icon: string
   color: string
   description?: string
+  imageUrl?: string
   isCustom: boolean
   _count?: {
     images: number
@@ -80,8 +81,13 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
     displayName: "",
     icon: "📁",
     color: "#3B82F6",
-    description: ""
+    description: "",
+    imageUrl: ""
   })
+
+  // Upload state
+  const [uploading, setUploading] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -109,6 +115,38 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
     }
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploading(true)
+      const formDataF = new FormData()
+      formDataF.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formDataF,
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro no upload')
+      }
+
+      const data = await response.json()
+      setFormData(prev => ({ ...prev, imageUrl: data.url, icon: "" }))
+      setPreviewUrl(data.url)
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Falha ao fazer upload da imagem",
+        variant: "destructive"
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -124,7 +162,8 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
             displayName: formData.displayName,
             icon: formData.icon,
             color: formData.color,
-            description: formData.description
+            description: formData.description,
+            imageUrl: formData.imageUrl
           })
         })
 
@@ -142,7 +181,10 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
         const response = await fetch("/api/categories/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData)
+          body: JSON.stringify({
+            ...formData,
+            name: formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+          })
         })
 
         if (!response.ok) {
@@ -164,8 +206,10 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
         displayName: "",
         icon: "📁",
         color: "#3B82F6",
-        description: ""
+        description: "",
+        imageUrl: ""
       })
+      setPreviewUrl(null)
       setEditingCategory(null)
       fetchCategories()
     } catch (error: any) {
@@ -186,8 +230,10 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
       displayName: category.displayName,
       icon: category.icon,
       color: category.color,
-      description: category.description || ""
+      description: category.description || "",
+      imageUrl: category.imageUrl || ""
     })
+    setPreviewUrl(category.imageUrl || null)
   }
 
   const handleCancelEdit = () => {
@@ -197,8 +243,10 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
       displayName: "",
       icon: "📁",
       color: "#3B82F6",
-      description: ""
+      description: "",
+      imageUrl: ""
     })
+    setPreviewUrl(null)
   }
 
   const handleDelete = async () => {
@@ -298,9 +346,9 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
                       <button
                         key={emoji}
                         type="button"
-                        onClick={() => setFormData({ ...formData, icon: emoji })}
+                        onClick={() => { setFormData({ ...formData, icon: emoji, imageUrl: "" }); setPreviewUrl(null) }}
                         className={`p-2 text-2xl rounded border-2 transition-all hover:scale-110 ${
-                          formData.icon === emoji
+                          formData.icon === emoji && !formData.imageUrl
                             ? "border-primary bg-primary/10"
                             : "border-gray-200 hover:border-gray-300"
                         }`}
@@ -310,6 +358,53 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Imagem da Categoria</Label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                      {previewUrl ? (
+                        <img 
+                          src={previewUrl} 
+                          alt="Preview" 
+                          className="w-full h-full object-contain rounded-lg"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                          <p className="text-xs text-gray-500">Upload</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        disabled={uploading || loading}
+                      />
+                    </label>
+                    {uploading && (
+                      <p className="text-sm text-muted-foreground">Enviando...</p>
+                    )}
+                    {formData.imageUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setFormData({ ...formData, imageUrl: "", icon: "📁" })
+                          setPreviewUrl(null)
+                        }}
+                        disabled={loading}
+                      >
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Envie uma imagem do seu dispositivo ou selecione um emoji
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -392,7 +487,15 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
                               className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
                               style={{ backgroundColor: category.color + "20" }}
                             >
-                              {category.icon}
+                              {category.imageUrl ? (
+                                <img 
+                                  src={category.imageUrl} 
+                                  alt={category.displayName} 
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                category.icon
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
@@ -464,7 +567,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
               {deletingCategory?._count && deletingCategory._count.images > 0 && (
                 <span className="block mt-2 text-destructive font-semibold">
                   Atenção: Esta categoria possui {deletingCategory._count.images} imagens associadas.
-                  Você precisa remover ou mover essas imagens antes de deletar a categoria.
+                  Todas as imagens serão deletadas junto com a categoria.
                 </span>
               )}
             </AlertDialogDescription>
@@ -474,7 +577,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={loading || (deletingCategory?._count?.images ?? 0) > 0}
+              disabled={loading}
             >
               Deletar
             </AlertDialogAction>

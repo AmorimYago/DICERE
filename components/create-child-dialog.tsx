@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -34,7 +33,8 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
   const [formData, setFormData] = useState({
     name: "",
     birthDate: "",
-    notes: ""
+    notes: "",
+    password: ""
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -55,6 +55,11 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
       return
     }
 
+    if (formData.password && formData.password.length > 0 && formData.password.length < 4) {
+      setError("Senha deve ter pelo menos 4 caracteres")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -66,7 +71,8 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
         body: JSON.stringify({
           name: formData.name.trim(),
           birthDate: formData.birthDate || null,
-          notes: formData.notes.trim() || null
+          notes: formData.notes.trim() || null,
+          password: formData.password || null
         })
       })
 
@@ -88,7 +94,8 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
       }
 
       onChildCreated(newChild)
-      setFormData({ name: "", birthDate: "", notes: "" })
+      setFormData({ name: "", birthDate: "", notes: "", password: "" })
+      onClose()
     } catch (error) {
       setError("Erro interno do servidor")
     } finally {
@@ -98,7 +105,7 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
 
   const handleClose = () => {
     if (!loading) {
-      setFormData({ name: "", birthDate: "", notes: "" })
+      setFormData({ name: "", birthDate: "", notes: "", password: "" })
       setError("")
       onClose()
     }
@@ -145,6 +152,22 @@ export function CreateChildDialog({ open, onClose, onChildCreated }: CreateChild
               onChange={handleChange}
               disabled={loading}
             />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha (opcional)</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Senha para acesso da criança"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Senha para acesso da criança ao sistema (mínimo 4 caracteres)
+            </p>
           </div>
           
           <div className="space-y-2">

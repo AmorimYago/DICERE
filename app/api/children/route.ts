@@ -61,8 +61,17 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
   
-    if (!session?.user?.id) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
+
+    // Buscar usuário real no banco para garantir userId válido
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    })
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 401 })
     }
 
     const { name, birthDate, profilePhoto, notes, password } = await request.json()
@@ -90,10 +99,10 @@ export async function POST(request: Request) {
       }
     })
 
-    // Create access for the current user
+    // Create access for the current user (usa currentUser.id)
     await prisma.childAccess.create({
       data: {
-        userId: session.user.id,
+        userId: currentUser.id,
         childId: child.id,
         role: "caregiver"
       }

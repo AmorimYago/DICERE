@@ -5,7 +5,7 @@ import { Session } from "next-auth"
 import { signOut } from "next-auth/react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarInitial } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ManageCategoriesDialog } from "@/components/manage-categories-dialog"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { CreateChildDialog } from "@/components/create-child-dialog"
+import CategoryIcon from "@/components/CategoryIcon"
 
 interface Child {
   id: string
@@ -222,22 +223,13 @@ export function DashboardContent({ session }: DashboardContentProps) {
                     >
                       <CardContent className="p-4">
                         <div className="flex flex-col items-center text-center space-y-2">
-                          {category.imageUrl ? (
-                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
-                              <img 
-                                src={category.imageUrl} 
-                                alt={category.displayName}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div 
-                              className="w-16 h-16 rounded-lg flex items-center justify-center text-3xl"
-                              style={{ backgroundColor: category.color + '20' }}
-                            >
-                              {category.icon}
-                            </div>
-                          )}
+                          <CategoryIcon
+                            imageUrl={category.imageUrl ?? null}
+                            icon={category.icon ?? null}
+                            alt={category.displayName}
+                            size={64}
+                            className="rounded-lg bg-gray-100"
+                          />
                           <div>
                             <p className="font-semibold text-gray-900">{category.displayName}</p>
                             <p className="text-xs text-gray-500">{category._count.images} cards</p>

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, displayName, icon, color, description } = body
+    const { name, displayName, icon, color, description, imageUrl } = body
 
     // Validação
     if (!name || !displayName) {
@@ -43,31 +43,20 @@ export async function POST(req: NextRequest) {
       select: { order: true }
     })
 
-    // Criar nova categoria - AJUSTADO
-    const categoryData: any = {
-      name: name.toLowerCase(),
-      displayName,
-      icon: icon || "📁",
-      color: color || "#6B7280",
-      order: (maxOrder?.order || 0) + 1,
-    }
-
-    // Adicionar campos opcionais apenas se existirem no schema
-    if (description !== undefined) {
-      categoryData.description = description
-    }
-
-    // Tentar adicionar isCustom e createdBy se existirem
-    try {
-      categoryData.isCustom = true
-      categoryData.createdBy = session.user.id
-    } catch (e) {
-      // Se não existir, ignora
-      console.log("Campos isCustom/createdBy não disponíveis ainda")
-    }
-
+    // Criar nova categoria
     const category = await prisma.category.create({
-      data: categoryData
+      data: {
+        name: name.toLowerCase(),
+        displayName,
+        icon: icon || "📁",
+        color: color || "#6B7280",
+        description: description || "",
+        imageUrl: imageUrl || null, // ← Campo adicionado
+        order: (maxOrder?.order || 0) + 1,
+        isCustom: true,
+        isActive: true,
+        createdBy: session.user.id,
+      }
     })
 
     return NextResponse.json(category, { status: 201 })

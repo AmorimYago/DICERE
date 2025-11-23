@@ -1,67 +1,110 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { v4 as uuidv4 } from 'uuid'
+import { NextRequest } from "next/server";
+import fs from "fs";
+import path from "path";
 
-export async function POST(request: NextRequest) {
+// Converte ArrayBuffer para Uint8Array
+function toArrayBufferView(buffer: ArrayBuffer): Uint8Array {
+  return new Uint8Array(buffer);
+}
+
+// Função para parsear multipart/form-data manualmente usando apenas Uint8Array
+async function parseMultipart(request: NextRequest) {
+  const contentType = request.headers.get("content-type");
+  if (!contentType || !contentType.includes("multipart/form-data")) {
+    throw new Error("Invalid content type");
+  }
+
+  const arrayBuffer = await request.arrayBuffer();
+  const uint8Array = toArrayBufferView(arrayBuffer);
+  const boundary = contentType.split("boundary=")[1];
+
+  if (!boundary) {
+    throw new Error("Boundary not found");
+  }
+
+  return { uint8Array, boundary };
+}
+
+// Extrai o arquivo do corpo multipart usando Uint8Array
+function extractFileFromMultipart(data: Uint8Array, boundary: string): Uint8Array | null {
+  const boundaryBytes = new TextEncoder().encode(`--${boundary}`);
+  const endBoundaryBytes = new TextEncoder().encode(`--${boundary}--`);
+
+  // Encontra o início do primeiro chunk
+  let startIndex = indexOfArray(data, boundaryBytes) + boundaryBytes.length;
+  if (startIndex === -1) return null;
+
+  // Encontra o fim do chunk
+  let endIndex = indexOfArray(data, boundaryBytes, startIndex);
+  if (endIndex === -1) {
+    endIndex = indexOfArray(data, endBoundaryBytes, startIndex);
+  }
+
+  if (endIndex === -1) return null;
+
+  const chunk = data.slice(startIndex, endIndex);
+  
+  // Encontra onde terminam os cabeçalhos
+  const headerEndIndex = indexOfArray(chunk, new TextEncoder().encode("\r\n\r\n")) + 4;
+  if (headerEndIndex === -1) return null;
+
+  // Retorna apenas os bytes do arquivo
+  return chunk.slice(headerEndIndex);
+}
+
+// Função auxiliar para encontrar índice de um array dentro de outro
+function indexOfArray(source: Uint8Array, search: Uint8Array, start = 0): number {
+  for (let i = start; i <= source.length - search.length; i++) {
+    let found = true;
+    for (let j = 0; j < search.length; j++) {
+      if (source[i + j] !== search[j]) {
+        found = false;
+        break;
+      }
+    }
+    if (found) return i;
+  }
+  return -1;
+}
+
+export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    // Parse do formulário usando apenas Uint8Array
+    const { uint8Array, boundary } = await parseMultipart(req);
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    // Extrai o arquivo
+    const fileData = extractFileFromMultipart(uint8Array, boundary);
+    if (!fileData) {
+      return new Response(
+        JSON.stringify({ error: "Arquivo não encontrado" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    
-    if (!file) {
-      return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 })
+    // Diretório de upload
+    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Validar tipo de arquivo
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Tipo de arquivo não permitido. Use JPEG, PNG, GIF ou WebP.' },
-        { status: 400 }
-      )
-    }
+    // Gera nome único para o arquivo
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+    const filePath = path.join(uploadDir, fileName);
 
-    // Validar tamanho (máximo 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'Arquivo muito grande. Tamanho máximo: 5MB' },
-        { status: 400 }
-      )
-    }
+    // Salva o arquivo (agora usando Uint8Array diretamente)
+    fs.writeFileSync(filePath, fileData);
 
-    // Converter diretamente para Uint8Array
-    const bytes = await file.arrayBuffer()
-    const uint8Array = new Uint8Array(bytes)
+    const url = `/uploads/${fileName}`;
 
-    // Gerar nome único para o arquivo
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${uuidv4()}.${fileExtension}`
-    
-    // Salvar na pasta public/uploads
-    const uploadDir = join(process.cwd(), 'public', 'uploads')
-    await mkdir(uploadDir, { recursive: true }) // Garante que a pasta exista
-    const filePath = join(uploadDir, fileName)
-    
-    await writeFile(filePath, uint8Array)
-    
-    // Retornar URL pública
-    const publicUrl = `/uploads/${fileName}`
-    
-    return NextResponse.json({ url: publicUrl }, { status: 200 })
+    return new Response(
+      JSON.stringify({ url }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error('Erro ao fazer upload:', error)
-    return NextResponse.json(
-      { error: 'Erro ao fazer upload do arquivo' },
-      { status: 500 }
-    )
+    console.error("Erro no upload:", error);
+    return new Response(
+      JSON.stringify({ error: "Erro no upload" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }

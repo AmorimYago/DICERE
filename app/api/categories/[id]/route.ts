@@ -49,7 +49,7 @@ export async function PUT(
         icon,
         color,
         description,
-        imageUrl
+        imageUrl: imageUrl || null, // Garante que null seja salvo se não enviado
       }
     })
 
@@ -103,12 +103,10 @@ export async function DELETE(
       )
     }
 
-    // CORREÇÃO: Deletar as imagens primeiro antes de deletar a categoria
-    if (category._count.images > 0) {
-      await prisma.image.deleteMany({
-        where: { categoryId: params.id }
-      })
-    }
+    // Deletar todas as imagens associadas primeiro
+    await prisma.image.deleteMany({
+      where: { categoryId: params.id }
+    })
 
     // Agora deletar a categoria
     await prisma.category.delete({
