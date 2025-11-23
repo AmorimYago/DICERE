@@ -30,7 +30,7 @@ interface Category {
   name: string
   displayName: string
   icon: string
-  imageUrl?: string  // ✅ ADICIONADO
+  imageUrl?: string
   color: string
   order: number
   _count?: {
@@ -145,9 +145,10 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
       await fetch("/api/sequences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           childId: child.id,
-          images: sentenceBar.map(img => img.id)
+          imageIds: sentenceBar.map(img => img.id) // ✅ Corrigido de "images" para "imageIds"
         })
       })
     } catch (error) {
