@@ -24,6 +24,7 @@ import {
 import Link from "next/link"
 import { CreateChildDialog } from "@/components/create-child-dialog"
 import CategoryIcon from "@/components/CategoryIcon"
+import CategoryCardsDialog from "@/components/CategoryCardsDialog"  // Import do modal de cards
 
 interface Child {
   id: string
@@ -68,6 +69,7 @@ export function DashboardContent({ session }: DashboardContentProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)  // Estado para modal cards
 
   useEffect(() => {
     fetchChildren()
@@ -220,6 +222,7 @@ export function DashboardContent({ session }: DashboardContentProps) {
                       key={category.id} 
                       className="shadow-md border-0 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all duration-200 cursor-pointer"
                       style={{ borderLeft: `4px solid ${category.color}` }}
+                      onClick={() => setSelectedCategory(category)}  // Abre modal ao clicar
                     >
                       <CardContent className="p-4">
                         <div className="flex flex-col items-center text-center space-y-2">
@@ -341,6 +344,19 @@ export function DashboardContent({ session }: DashboardContentProps) {
         onClose={() => setShowCreateDialog(false)}
         onChildCreated={handleChildCreated}
       />
+
+      {/* Modal de cards da categoria */}
+      {selectedCategory && (
+        <CategoryCardsDialog
+          open={!!selectedCategory}
+          onClose={() => setSelectedCategory(null)}
+          category={selectedCategory}
+          session={session}
+          onUpdated={() => {
+            fetchCategories()
+          }}
+        />
+      )}
     </div>
   )
 }

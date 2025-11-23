@@ -7,7 +7,6 @@ import { prisma } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
@@ -39,6 +38,7 @@ export async function POST(request: NextRequest) {
         isCustom: true,
         uploadedBy: session.user.id,
         order: newOrder,
+        isActive: true,
       },
       include: {
         category: true,
@@ -55,11 +55,60 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Atualizar card personalizado
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, name, imageUrl, audioUrl } = body
+
+    if (!id || !name) {
+      return NextResponse.json(
+        { error: 'id e name são obrigatórios' },
+        { status: 400 }
+      )
+    }
+
+    const image = await prisma.image.findUnique({ where: { id } })
+    if (!image) {
+      return NextResponse.json({ error: 'Card não encontrado' }, { status: 404 })
+    }
+
+    if (!image.isCustom) {
+      return NextResponse.json({ error: 'Não é possível editar cards padrão' }, { status: 403 })
+    }
+
+    if (image.uploadedBy && image.uploadedBy !== session.user.id) {
+      return NextResponse.json({ error: 'Você não tem permissão para editar este card' }, { status: 403 })
+    }
+
+    const updated = await prisma.image.update({
+      where: { id },
+      data: {
+        name,
+        imageUrl: imageUrl ?? image.imageUrl,
+        audioUrl: audioUrl ?? image.audioUrl,
+      },
+      include: {
+        category: true,
+      },
+    })
+
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error('Erro ao atualizar card:', error)
+    return NextResponse.json({ error: 'Erro ao atualizar card' }, { status: 500 })
+  }
+}
+
 // DELETE - Deletar card personalizado
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
