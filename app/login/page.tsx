@@ -1,4 +1,4 @@
-
+// app/login/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -13,7 +13,7 @@ import { Loader2, MessageCircle, Heart } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -26,21 +26,27 @@ export default function LoginPage() {
 
     try {
       const result = await signIn("credentials", {
-        email,
+        identifier,
         password,
         redirect: false
       })
 
       if (result?.error) {
-        setError("Email ou senha incorretos")
+        setError("Credenciais inválidas")
       } else {
-        // Wait for session to be available
         const session = await getSession()
-        if (session) {
-          router.replace("/dashboard")
+        if (session?.user) {
+          const role = (session.user as any).role
+          const userId = session.user.id
+
+          if (role === "CRIANCA") {
+            router.replace(`/aac/${userId}`)
+          } else {
+            router.replace("/dashboard")
+          }
         }
       }
-    } catch (error) {
+    } catch (err) {
       setError("Erro ao fazer login. Tente novamente.")
     } finally {
       setLoading(false)
@@ -64,7 +70,7 @@ export default function LoginPage() {
             </CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
@@ -72,23 +78,23 @@ export default function LoginPage() {
                 <AlertDescription className="text-red-800">{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email
+              <Label htmlFor="identifier" className="text-sm font-medium text-gray-700">
+                Email do pai ou Nome da criança
               </Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                placeholder="seu@email.com ou Nome da criança"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
                 className="h-12 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 disabled={loading}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Senha
@@ -104,9 +110,9 @@ export default function LoginPage() {
                 disabled={loading}
               />
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
               disabled={loading}
             >
@@ -121,7 +127,7 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        
+
         <CardFooter className="pt-6">
           <div className="w-full text-center space-y-4">
             <p className="text-sm text-gray-600">

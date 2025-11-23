@@ -70,7 +70,7 @@ model VerificationToken {
 // Children Profiles
 model Child {
   id           String   @id @default(cuid())
-  name         String
+  name         String   @unique
   birthDate    DateTime?
   profilePhoto String?
   notes        String?

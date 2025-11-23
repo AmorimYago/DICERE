@@ -1,4 +1,4 @@
-
+// app/aac/[childId]/page.tsx
 import { getServerSession } from "next-auth"
 import { redirect, notFound } from "next/navigation"
 import { authOptions } from "@/lib/auth"
@@ -11,16 +11,48 @@ interface AAC_PageProps {
 
 export default async function AAC_Page({ params }: AAC_PageProps) {
   const session = await getServerSession(authOptions)
-  
+
   if (!session?.user?.id) {
     redirect("/login")
   }
 
-  // Verify user has access to this child
+  const userId = session.user.id
+  const role = (session.user as any)?.role
+
+  // Se for criança, verifica se é a própria criança
+  if (role === "CRIANCA") {
+    if (userId !== params.childId) {
+      notFound()
+    }
+
+    // Busca os dados da criança
+    const child = await prisma.child.findUnique({
+      where: { id: params.childId },
+      select: {
+        id: true,
+        name: true,
+        profilePhoto: true
+      }
+    })
+
+    if (!child) {
+      notFound()
+    }
+
+    return (
+      <AAC_Interface
+        child={child}
+        userId={userId}
+        role={role}
+      />
+    )
+  }
+
+  // Se for pai/cuidador, verifica acesso via ChildAccess
   const childAccess = await prisma.childAccess.findUnique({
     where: {
       userId_childId: {
-        userId: session.user.id,
+        userId: userId,
         childId: params.childId
       }
     },
@@ -40,9 +72,10 @@ export default async function AAC_Page({ params }: AAC_PageProps) {
   }
 
   return (
-    <AAC_Interface 
+    <AAC_Interface
       child={childAccess.child}
-      userId={session.user.id}
+      userId={userId}
+      role={role}
     />
   )
 }

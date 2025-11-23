@@ -1,3 +1,4 @@
+// components/aac-interface.tsx
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -55,9 +56,10 @@ interface ImageItem {
 interface AAC_InterfaceProps {
   child: Child
   userId: string
+  role?: string
 }
 
-export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
+export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [categoryImages, setCategoryImages] = useState<ImageItem[]>([])
@@ -105,15 +107,12 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
   }
 
   const handleImageSelect = async (image: ImageItem) => {
-    // Add to sentence bar
     setSentenceBar(prev => [...prev, image])
     
-    // Play individual sound
     if (tts) {
-      tts.speak(image.name, 1.1)
+      tts.speak(image.name, 1.1) 
     }
 
-    // Auto-scroll sentence bar
     setTimeout(() => {
       if (sentenceBarRef.current) {
         sentenceBarRef.current.scrollLeft = sentenceBarRef.current.scrollWidth
@@ -140,7 +139,6 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
     setSpeaking(true)
     const sentence = sentenceBar.map(img => img.name).join(" ")
     
-    // Log the sequence to database
     try {
       await fetch("/api/sequences", {
         method: "POST",
@@ -148,7 +146,7 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
         credentials: "include",
         body: JSON.stringify({
           childId: child.id,
-          imageIds: sentenceBar.map(img => img.id) // ✅ Corrigido de "images" para "imageIds"
+          imageIds: sentenceBar.map(img => img.id)
         })
       })
     } catch (error) {
@@ -157,11 +155,9 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
     
     tts.speak(sentence, 0.9)
     
-    // Reset speaking state after estimated speaking time
     setTimeout(() => setSpeaking(false), sentence.length * 100 + 1000)
   }
 
-  // ✅ FUNÇÃO CORRIGIDA - Recebe o objeto Category completo
   const renderCategoryIcon = (category: Category, sizeClass: string = "h-12 w-12") => {
     if (category.imageUrl) {
       return (
@@ -179,7 +175,6 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
       )
     }
     
-    // Fallback para emoji
     return (
       <span className={sizeClass === "h-12 w-12" ? "text-4xl" : "text-2xl"}>
         {category.icon || '📁'}
@@ -195,12 +190,15 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
           {/* Top Row - Navigation */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
-                <Button variant="outline" size="sm" className="border-gray-300 hover:bg-gray-50">
-                  <Home className="h-4 w-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
+              {/* Esconde o botão Dashboard se for criança */}
+              {role !== "CRIANCA" && (
+                <Link href="/dashboard">
+                  <Button variant="outline" size="sm" className="border-gray-300 hover:bg-gray-50">
+                    <Home className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Button>
+                </Link>
+              )}
               
               {selectedCategory && (
                 <Button 
@@ -342,7 +340,6 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
                   className="p-3 rounded-xl shadow-lg flex items-center justify-center"
                   style={{ backgroundColor: selectedCategory.color + '30' }}
                 >
-                  {/* ✅ CORRIGIDO - Passa o objeto completo */}
                   {renderCategoryIcon(selectedCategory, "h-8 w-8")}
                 </div>
                 <div>
@@ -390,7 +387,6 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
                                 sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                                 onError={(e) => {
                                   console.error(`Erro ao carregar imagem: ${image.name}`)
-                                  // Fallback para placeholder
                                   e.currentTarget.src = '/placeholder-image.png'
                                 }}
                               />
@@ -450,7 +446,6 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
                               className="mx-auto p-4 rounded-xl shadow-lg flex items-center justify-center w-20 h-20"
                               style={{ backgroundColor: category.color + '30' }}
                             >
-                              {/* ✅ CORRIGIDO - Passa o objeto completo */}
                               {renderCategoryIcon(category, "h-12 w-12")}
                             </div>
                             <div>
