@@ -5,6 +5,24 @@ import { prisma } from "@/lib/db"
 import { generatePDFReportHTML } from "@/lib/pdf"
 import { Permissions } from "@/lib/permissions"
 
+// Tipo local representando o retorno do prisma.sequence.findMany com include dos items+image
+type SequenceWithItems = {
+  id: string
+  childId: string
+  timestamp: Date
+  items: {
+    id: string
+    sequenceId: string
+    imageId: string
+    order: number
+    image: {
+      id: string
+      name: string
+      imageUrl?: string | null
+    }
+  }[]
+}
+
 export const dynamic = "force-dynamic"
 
 export async function GET(
@@ -101,7 +119,7 @@ export async function GET(
     })
 
     // Format sequences for PDF
-    const formattedSequences = sequences.map(seq => ({
+    const formattedSequences = (sequences as SequenceWithItems[]).map(seq => ({
       timestamp: new Date(seq.timestamp).toLocaleString('pt-BR'),
       images: seq.items.map(item => item.image.name),
     }))

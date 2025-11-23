@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,6 +6,7 @@ import { signOut } from "next-auth/react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarInitial } from "@/components/ui/avatar"
+import { ManageCategoriesDialog } from "@/components/manage-categories-dialog"
 import { Badge } from "@/components/ui/badge"
 import { 
   MessageCircle, 
@@ -18,7 +18,8 @@ import {
   Calendar,
   Activity,
   Heart,
-  User
+  User,
+  FolderOpen
 } from "lucide-react"
 import Link from "next/link"
 import { CreateChildDialog } from "@/components/create-child-dialog"
@@ -44,17 +45,32 @@ interface Child {
   }
 }
 
+interface Category {
+  id: string
+  name: string
+  displayName: string
+  icon: string
+  imageUrl?: string
+  color: string
+  order: number
+  _count: {
+    images: number
+  }
+}
+
 interface DashboardContentProps {
   session: Session
 }
 
 export function DashboardContent({ session }: DashboardContentProps) {
   const [children, setChildren] = useState<Child[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   useEffect(() => {
     fetchChildren()
+    fetchCategories()
   }, [])
 
   const fetchChildren = async () => {
@@ -71,9 +87,25 @@ export function DashboardContent({ session }: DashboardContentProps) {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/categories")
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data)
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    }
+  }
+
   const handleChildCreated = (newChild: Child) => {
     setChildren(prev => [...prev, newChild])
     setShowCreateDialog(false)
+  }
+
+  const handleCategoryUpdated = () => {
+    fetchCategories()
   }
 
   const formatDate = (dateString: string) => {
@@ -152,13 +184,16 @@ export function DashboardContent({ session }: DashboardContentProps) {
               </p>
             </div>
             
-            <Button 
-              onClick={() => setShowCreateDialog(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Nova Criança
-            </Button>
+            <div className="flex gap-2">
+              <ManageCategoriesDialog onCategoryCreated={handleCategoryUpdated} />
+              <Button 
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Nova Criança
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -166,90 +201,146 @@ export function DashboardContent({ session }: DashboardContentProps) {
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
-        ) : children.length === 0 ? (
-          <Card className="w-full max-w-2xl mx-auto shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 mb-6">
-                <User className="h-10 w-10 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhuma criança cadastrada</h3>
-              <p className="text-gray-500 text-center mb-6">
-                Adicione o primeiro perfil de criança para começar a usar o DICERE.
-              </p>
-              <Button 
-                onClick={() => setShowCreateDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Adicionar Primeira Criança
-              </Button>
-            </CardContent>
-          </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {children.map((child) => (
-              <Card key={child.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-12 w-12">
-                        {child.profilePhoto ? (
-                          <img src={child.profilePhoto} alt={child.name} className="w-full h-full object-cover rounded-full" />
-                        ) : (
-                          <AvatarFallback className="bg-green-100 text-green-600 text-lg font-semibold">
-                            {child.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-gray-900">{child.name}</CardTitle>
-                        {child.birthDate && (
-                          <CardDescription className="text-sm text-gray-500">
-                            {calculateAge(child.birthDate)} anos
-                          </CardDescription>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
+          <>
+            {/* Seção de Categorias */}
+            {categories.length > 0 && (
+              <div className="mb-12">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900">📚 Categorias Disponíveis</h3>
+                  <Badge variant="secondary" className="text-sm">
+                    {categories.length} categorias • {categories.reduce((acc, cat) => acc + cat._count.images, 0)} cards
+                  </Badge>
+                </div>
                 
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <Activity className="h-4 w-4" />
-                      <span>{child._count.sequences} comunicações</span>
+                <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {categories.map((category) => (
+                    <Card 
+                      key={category.id} 
+                      className="shadow-md border-0 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      style={{ borderLeft: `4px solid ${category.color}` }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col items-center text-center space-y-2">
+                          {category.imageUrl ? (
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                              <img 
+                                src={category.imageUrl} 
+                                alt={category.displayName}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              className="w-16 h-16 rounded-lg flex items-center justify-center text-3xl"
+                              style={{ backgroundColor: category.color + '20' }}
+                            >
+                              {category.icon}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-gray-900">{category.displayName}</p>
+                            <p className="text-xs text-gray-500">{category._count.images} cards</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Seção de Crianças */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">👶 Crianças Cadastradas</h3>
+              
+              {children.length === 0 ? (
+                <Card className="w-full max-w-2xl mx-auto shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 mb-6">
+                      <User className="h-10 w-10 text-blue-600" />
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{child._count.reports} relatórios</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1">
-                    {child.childAccess.map((access) => (
-                      <Badge key={access.user.id} variant="secondary" className="text-xs">
-                        {access.user.name}
-                      </Badge>
-                    ))}
-                  </div>
-                  
-                  <div className="flex space-x-2 pt-2">
-                    <Link href={`/aac/${child.id}`} className="flex-1">
-                      <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Comunicar
-                      </Button>
-                    </Link>
-                    <Link href={`/reports/${child.id}`}>
-                      <Button variant="outline" size="sm">
-                        <BarChart3 className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhuma criança cadastrada</h3>
+                    <p className="text-gray-500 text-center mb-6">
+                      Adicione o primeiro perfil de criança para começar a usar o DICERE.
+                    </p>
+                    <Button 
+                      onClick={() => setShowCreateDialog(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
+                      Adicionar Primeira Criança
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {children.map((child) => (
+                    <Card key={child.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-12 w-12">
+                              {child.profilePhoto ? (
+                                <img src={child.profilePhoto} alt={child.name} className="w-full h-full object-cover rounded-full" />
+                              ) : (
+                                <AvatarFallback className="bg-green-100 text-green-600 text-lg font-semibold">
+                                  {child.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div>
+                              <CardTitle className="text-lg font-semibold text-gray-900">{child.name}</CardTitle>
+                              {child.birthDate && (
+                                <CardDescription className="text-sm text-gray-500">
+                                  {calculateAge(child.birthDate)} anos
+                                </CardDescription>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between text-sm text-gray-600">
+                          <div className="flex items-center space-x-1">
+                            <Activity className="h-4 w-4" />
+                            <span>{child._count.sequences} comunicações</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{child._count.reports} relatórios</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1">
+                          {child.childAccess.map((access) => (
+                            <Badge key={access.user.id} variant="secondary" className="text-xs">
+                              {access.user.name}
+                            </Badge>
+                          ))}
+                        </div>
+                        
+                        <div className="flex space-x-2 pt-2">
+                          <Link href={`/aac/${child.id}`} className="flex-1">
+                            <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Comunicar
+                            </Button>
+                          </Link>
+                          <Link href={`/reports/${child.id}`}>
+                            <Button variant="outline" size="sm">
+                              <BarChart3 className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </main>
 

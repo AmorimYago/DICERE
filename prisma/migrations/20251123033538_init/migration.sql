@@ -1,0 +1,13 @@
+-- AlterTable
+ALTER TABLE "Category" ADD COLUMN     "imageUrl" TEXT,
+ADD COLUMN     "isActive" BOOLEAN NOT NULL DEFAULT true,
+ALTER COLUMN "icon" DROP NOT NULL,
+ALTER COLUMN "icon" DROP DEFAULT,
+ALTER COLUMN "color" DROP DEFAULT,
+ALTER COLUMN "order" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "Child" ADD COLUMN     "password" TEXT;
+
+-- AlterTable
+ALTER TABLE "Image" ALTER COLUMN "imageUrl" DROP NOT NULL;

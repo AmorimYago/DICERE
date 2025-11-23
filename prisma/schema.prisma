@@ -69,13 +69,14 @@ model VerificationToken {
 
 // Children Profiles
 model Child {
-  id          String   @id @default(cuid())
-  name        String
-  birthDate   DateTime?
-  profilePhoto String?  // S3 key for profile photo
-  notes       String?  // Additional information about the child
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  birthDate    DateTime?
+  profilePhoto String?
+  notes        String?
+  password     String?  // Senha para acesso da criança
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relationships
   childAccess ChildAccess[]
@@ -99,25 +100,28 @@ model ChildAccess {
 
 // Communication Categories (General, Food, Beverages, etc.)
 model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique // GENERAL, FOOD, BEVERAGES, etc.
-  displayName String   // "Geral", "Comida", "Bebidas", etc.
-  icon        String   // Icon name from lucide-react
-  color       String   // Background color for category
-  order       Int      // Display order
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique
+  displayName String
+  icon      String?  // Emoji opcional (para fallback)
+  imageUrl  String?  //
+  color     String
+  description String?
+  order     Int
+  isActive  Boolean  @default(true)
+  isCustom  Boolean  @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relationships
-  images Image[]
+  images    Image[]
 }
 
 // Images (both default and custom uploaded by parents)
 model Image {
   id          String   @id @default(cuid())
   name        String   // Display name for the image
-  imageUrl    String   // S3 key or URL for the image
+  imageUrl    String?  
   audioUrl    String?  // Optional custom audio file (S3 key)
   categoryId  String
   isCustom    Boolean  @default(false) // true for user-uploaded images

@@ -1,8 +1,38 @@
-
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
+
+// Tipo local representando o retorno do prisma.sequence.findMany com include dos items+image
+type SequenceWithItems = {
+  id: string
+  childId: string
+  timestamp: Date
+  items: {
+    id: string
+    sequenceId: string
+    imageId: string
+    order: number
+    image: {
+      id: string
+      name: string
+      imageUrl?: string | null
+      category?: {
+        displayName: string
+        color: string
+      } | null
+    }
+  }[]
+  comments: {
+    id: string
+    content: string
+    createdAt: Date
+    user: {
+      name: string | null
+      email: string
+    } | null
+  }[]
+}
 
 export const dynamic = "force-dynamic"
 
@@ -39,7 +69,7 @@ export async function GET(
       )
     }
 
-    let dateFilter = {}
+    let dateFilter: any = {}
     if (startDate && endDate) {
       dateFilter = {
         timestamp: {
@@ -60,7 +90,7 @@ export async function GET(
     }
 
     // Fetch sequences for the period
-    const sequences = await prisma.sequence.findMany({
+    const sequences = (await prisma.sequence.findMany({
       where: {
         childId,
         ...dateFilter
@@ -97,15 +127,18 @@ export async function GET(
         }
       },
       orderBy: { timestamp: 'desc' }
-    })
+    })) as SequenceWithItems[]
 
     // Generate statistics
     const totalSequences = sequences.length
-    const totalImages = sequences.reduce((total, seq) => total + seq.items.length, 0)
-    
+    const totalImages = sequences.reduce(
+      (total: number, seq: SequenceWithItems) => total + seq.items.length,
+      0
+    )
+
     // Count word frequency
     const wordCount: { [key: string]: number } = {}
-    sequences.forEach(seq => {
+    sequences.forEach((seq: SequenceWithItems) => {
       seq.items.forEach(item => {
         const word = item.image.name
         wordCount[word] = (wordCount[word] || 0) + 1
@@ -119,7 +152,7 @@ export async function GET(
 
     // Category usage
     const categoryCount: { [key: string]: number } = {}
-    sequences.forEach(seq => {
+    sequences.forEach((seq: SequenceWithItems) => {
       seq.items.forEach(item => {
         const category = item.image.category?.displayName || 'Sem categoria'
         categoryCount[category] = (categoryCount[category] || 0) + 1
@@ -135,7 +168,7 @@ export async function GET(
     if (startDate && endDate && startDate !== endDate) {
       const dailyStats: { [key: string]: any } = {}
       
-      sequences.forEach(seq => {
+      sequences.forEach((seq: SequenceWithItems) => {
         const date = seq.timestamp.toISOString().split('T')[0]
         if (!dailyStats[date]) {
           dailyStats[date] = {
@@ -155,17 +188,22 @@ export async function GET(
       )
     }
 
+    const totalComments = sequences.reduce(
+      (total: number, seq: SequenceWithItems) => total + seq.comments.length,
+      0
+    )
+
     return NextResponse.json({
       summary: {
         totalSequences,
         totalImages,
-        totalComments: sequences.reduce((total, seq) => total + seq.comments.length, 0),
+        totalComments,
         averageSequenceLength: totalSequences > 0 ? Math.round(totalImages / totalSequences * 10) / 10 : 0
       },
       mostUsedWords,
       categoryUsage,
       dailyBreakdown,
-      sequences,
+      sequences, // Note: Dates will be serialized to ISO strings in JSON
       period: {
         startDate: startDate || 'N/A',
         endDate: endDate || startDate || 'N/A'

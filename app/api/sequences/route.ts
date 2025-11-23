@@ -1,172 +1,152 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/db"
-
-export const dynamic = "force-dynamic"
-
-export async function POST(request: Request) {
+// POST - Criar nova sequência de comunicação
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { childId, images } = await request.json()
+    const body = await request.json()
+    const { childId, imageIds } = body
 
-    if (!childId || !images || !Array.isArray(images)) {
+    if (!childId || !imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
       return NextResponse.json(
-        { error: "childId e array de imagens são obrigatórios" },
+        { error: 'childId e imageIds são obrigatórios' },
         { status: 400 }
       )
     }
 
-    // Verify user has access to this child
-    const childAccess = await prisma.childAccess.findUnique({
+    // Verificar se o usuário tem acesso à criança
+    const hasAccess = await prisma.childAccess.findFirst({
       where: {
-        userId_childId: {
-          userId: session.user.id,
-          childId
-        }
-      }
+        userId: session.user.id,
+        childId: childId,
+      },
     })
 
-    if (!childAccess) {
+    if (!hasAccess) {
       return NextResponse.json(
-        { error: "Acesso negado a este perfil" },
+        { error: 'Você não tem acesso a esta criança' },
         { status: 403 }
       )
     }
 
-    // Create sequence
+    // Criar a sequência com os itens
     const sequence = await prisma.sequence.create({
       data: {
-        childId,
+        childId: childId,
         items: {
-          create: images.map((imageId: string, index: number) => ({
-            imageId,
-            order: index
-          }))
-        }
+          create: imageIds.map((imageId: string, index: number) => ({
+            imageId: imageId,
+            order: index,
+          })),
+        },
       },
       include: {
         items: {
           include: {
             image: {
-              select: {
-                id: true,
-                name: true,
-                imageUrl: true
-              }
-            }
+              include: {
+                category: true,
+              },
+            },
           },
-          orderBy: { order: 'asc' }
-        }
-      }
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
     })
 
-    return NextResponse.json({
-      message: "Sequência registrada com sucesso",
-      sequence
-    })
+    return NextResponse.json(sequence, { status: 201 })
   } catch (error) {
-    console.error("Error creating sequence:", error)
+    console.error('Erro ao criar sequência:', error)
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      { error: 'Erro ao criar sequência' },
       { status: 500 }
     )
   }
 }
 
-export async function GET(request: Request) {
+// GET - Buscar sequências de uma criança
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const url = new URL(request.url)
-    const childId = url.searchParams.get('childId')
-    const date = url.searchParams.get('date')
+    const { searchParams } = new URL(request.url)
+    const childId = searchParams.get('childId')
 
     if (!childId) {
       return NextResponse.json(
-        { error: "childId é obrigatório" },
+        { error: 'childId é obrigatório' },
         { status: 400 }
       )
     }
 
-    // Verify user has access to this child
-    const childAccess = await prisma.childAccess.findUnique({
+    // Verificar se o usuário tem acesso à criança
+    const hasAccess = await prisma.childAccess.findFirst({
       where: {
-        userId_childId: {
-          userId: session.user.id,
-          childId
-        }
-      }
+        userId: session.user.id,
+        childId: childId,
+      },
     })
 
-    if (!childAccess) {
+    if (!hasAccess) {
       return NextResponse.json(
-        { error: "Acesso negado a este perfil" },
+        { error: 'Você não tem acesso a esta criança' },
         { status: 403 }
       )
-    }
-
-    const whereClause: any = { childId }
-
-    if (date) {
-      const startDate = new Date(date)
-      const endDate = new Date(date)
-      endDate.setDate(endDate.getDate() + 1)
-      
-      whereClause.timestamp = {
-        gte: startDate,
-        lt: endDate
       }
-    }
 
     const sequences = await prisma.sequence.findMany({
-      where: whereClause,
+      where: {
+        childId: childId,
+      },
       include: {
         items: {
           include: {
             image: {
-              select: {
-                id: true,
-                name: true,
-                imageUrl: true,
-                category: {
-                  select: {
-                    displayName: true
-                  }
-                }
-              }
-            }
+              include: {
+                category: true,
+              },
+            },
           },
-          orderBy: { order: 'asc' }
+          orderBy: {
+            order: 'asc',
+          },
         },
         comments: {
           include: {
             user: {
               select: {
-                name: true
-              }
-            }
-          }
-        }
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
-      orderBy: { timestamp: 'desc' }
+      orderBy: {
+        timestamp: 'desc',
+      },
     })
 
     return NextResponse.json(sequences)
   } catch (error) {
-    console.error("Error fetching sequences:", error)
+    console.error('Erro ao buscar sequências:', error)
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      { error: 'Erro ao buscar sequências' },
       { status: 500 }
     )
   }

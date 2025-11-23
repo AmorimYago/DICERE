@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:categories": "tsx scripts/seed-categories.ts"
   },
   "prisma": {
     "seed": "tsx --require dotenv/config scripts/seed.ts"
@@ -15,6 +16,7 @@
     "@types/node": "20.6.2",
     "@types/react": "18.2.22",
     "@types/react-dom": "18.2.7",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "7.0.0",
     "@typescript-eslint/parser": "7.0.0",
     "eslint": "^8.57.0",
@@ -112,6 +114,7 @@
     "sonner": "1.5.0",
     "swr": "2.2.4",
     "tailwind-scrollbar-hide": "1.1.7",
+    "uuid": "^13.0.0",
     "vaul": "0.9.9",
     "webpack": "5.99.5",
     "yup": "1.3.0",

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -31,6 +30,7 @@ interface Category {
   name: string
   displayName: string
   icon: string
+  imageUrl?: string  // ✅ ADICIONADO
   color: string
   order: number
   _count?: {
@@ -160,16 +160,30 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
     setTimeout(() => setSpeaking(false), sentence.length * 100 + 1000)
   }
 
-  const renderCategoryIcon = (iconName: string, className: string = "h-8 w-8") => {
-    // Map of icon names to actual icon components
-    const iconMap: { [key: string]: any } = {
-      MessageCircle,
-      Heart,
-      // Add more mappings as needed
+  // ✅ FUNÇÃO CORRIGIDA - Recebe o objeto Category completo
+  const renderCategoryIcon = (category: Category, sizeClass: string = "h-12 w-12") => {
+    if (category.imageUrl) {
+      return (
+        <Image
+          src={category.imageUrl}
+          alt={category.displayName}
+          width={48}
+          height={48}
+          className={`${sizeClass} object-contain`}
+          onError={(e) => {
+            console.error(`Erro ao carregar imagem da categoria: ${category.displayName}`)
+            e.currentTarget.style.display = 'none'
+          }}
+        />
+      )
     }
     
-    const IconComponent = iconMap[iconName] || MessageCircle
-    return <IconComponent className={className} />
+    // Fallback para emoji
+    return (
+      <span className={sizeClass === "h-12 w-12" ? "text-4xl" : "text-2xl"}>
+        {category.icon || '📁'}
+      </span>
+    )
   }
 
   return (
@@ -250,8 +264,11 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
                                 src={image.imageUrl}
                                 alt={image.name}
                                 fill
-                                className="object-cover"
+                                className="object-contain"
                                 sizes="48px"
+                                onError={(e) => {
+                                  console.error(`Erro ao carregar imagem: ${image.name}`)
+                                }}
                               />
                             </div>
                             <p className="text-xs font-medium text-center text-gray-700 leading-tight">
@@ -320,8 +337,12 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
           <div>
             <div className="mb-6">
               <div className="flex items-center space-x-3 mb-2">
-                <div className={`p-3 rounded-xl ${selectedCategory.color} shadow-lg`}>
-                  {renderCategoryIcon(selectedCategory.icon, "h-6 w-6 text-gray-700")}
+                <div 
+                  className="p-3 rounded-xl shadow-lg flex items-center justify-center"
+                  style={{ backgroundColor: selectedCategory.color + '30' }}
+                >
+                  {/* ✅ CORRIGIDO - Passa o objeto completo */}
+                  {renderCategoryIcon(selectedCategory, "h-8 w-8")}
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{selectedCategory.displayName}</h2>
@@ -333,38 +354,59 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
             {categoryImages.length === 0 ? (
               <div className="text-center py-20 text-gray-500">
                 <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Nenhuma imagem encontrada nesta categoria</p>
+                <p className="text-lg font-medium">Nenhuma imagem encontrada nesta categoria</p>
+                <p className="text-sm mt-2">Adicione imagens no dashboard para começar!</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {categoryImages.map((image) => (
-                  <motion.div
-                    key={image.id}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="cursor-pointer"
-                  >
-                    <Card 
-                      onClick={() => handleImageSelect(image)}
-                      className="border-2 border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                <AnimatePresence>
+                  {categoryImages.map((image, index) => (
+                    <motion.div
+                      key={image.id}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="cursor-pointer"
                     >
-                      <CardContent className="p-4">
-                        <div className="relative w-full aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
-                          <Image
-                            src={image.imageUrl}
-                            alt={image.name}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
-                          />
-                        </div>
-                        <p className="text-center font-medium text-gray-900 text-sm leading-tight">
-                          {image.name}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                      <Card 
+                        onClick={() => handleImageSelect(image)}
+                        className="border-2 border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                        style={{ 
+                          borderColor: `${selectedCategory.color}40`,
+                        }}
+                      >
+                        <CardContent className="p-4">
+                          <div className="relative w-full aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
+                            {image.imageUrl ? (
+                              <Image
+                                src={image.imageUrl}
+                                alt={image.name}
+                                fill
+                                className="object-contain p-2"
+                                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                                onError={(e) => {
+                                  console.error(`Erro ao carregar imagem: ${image.name}`)
+                                  // Fallback para placeholder
+                                  e.currentTarget.src = '/placeholder-image.png'
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-4xl">
+                                ❓
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-center font-medium text-gray-900 text-sm leading-tight line-clamp-2">
+                            {image.name}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>
@@ -375,35 +417,62 @@ export function AAC_Interface({ child, userId }: AAC_InterfaceProps) {
               <p className="text-lg text-gray-600">Toque na categoria para ver as opções de comunicação</p>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 lg:gap-6">
-              {categories.map((category) => (
-                <motion.div
-                  key={category.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="cursor-pointer"
-                >
-                  <Card 
-                    onClick={() => handleCategorySelect(category)}
-                    className="border-2 border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all duration-200 bg-white/80 backdrop-blur-sm h-full"
-                  >
-                    <CardContent className="p-6 text-center h-full flex flex-col justify-between">
-                      <div className="space-y-4">
-                        <div className={`mx-auto p-4 rounded-xl ${category.color} shadow-lg`}>
-                          {renderCategoryIcon(category.icon, "h-8 w-8 text-gray-700")}
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-lg mb-1">{category.displayName}</h3>
-                          <Badge variant="secondary" className="text-xs">
-                            {category._count?.images || 0} itens
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+            {categories.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">
+                <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">Nenhuma categoria disponível</p>
+                <p className="text-sm mt-2">Execute o script de seed para popular as categorias padrão!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 lg:gap-6">
+                <AnimatePresence>
+                  {categories.map((category, index) => (
+                    <motion.div
+                      key={category.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="cursor-pointer"
+                    >
+                      <Card 
+                        onClick={() => handleCategorySelect(category)}
+                        className="border-2 border-gray-200 hover:shadow-xl transition-all duration-200 bg-white/80 backdrop-blur-sm h-full"
+                        style={{ 
+                          borderColor: `${category.color}40`,
+                        }}
+                      >
+                        <CardContent className="p-6 text-center h-full flex flex-col justify-between">
+                          <div className="space-y-4">
+                            <div 
+                              className="mx-auto p-4 rounded-xl shadow-lg flex items-center justify-center w-20 h-20"
+                              style={{ backgroundColor: category.color + '30' }}
+                            >
+                              {/* ✅ CORRIGIDO - Passa o objeto completo */}
+                              {renderCategoryIcon(category, "h-12 w-12")}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-gray-900 text-lg mb-1">{category.displayName}</h3>
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs"
+                                style={{ 
+                                  backgroundColor: category.color + '20',
+                                  color: category.color
+                                }}
+                              >
+                                {category._count?.images || 0} itens
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         )}
       </main>

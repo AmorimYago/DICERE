@@ -14,5 +14,20 @@ services:
     volumes:
       - dicere_data:/var/lib/postgresql/data
 
+  app:
+    build: .
+    container_name: dicere-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://dicere_user:dicere_password@postgres:5432/dicere
+    depends_on:
+      - postgres
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: npm run dev
+
 volumes:
   dicere_data:
