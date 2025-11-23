@@ -20,7 +20,7 @@ import { tts } from "@/lib/tts"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { normalizeRole, isChildRole } from "@/lib/roles"
-import { signOut } from "next-auth/react" // <<-- ADICIONADO
+import { signOut } from "next-auth/react"
 
 interface Child {
   id: string
@@ -137,12 +137,12 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
 
   const handleSpeak = async () => {
     if (sentenceBar.length === 0 || !tts) return
-    
+
     setSpeaking(true)
     const sentence = sentenceBar.map(img => img.name).join(" ")
-    
+
     try {
-      await fetch("/api/sequences", {
+      const res = await fetch("/api/sequences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -151,13 +151,33 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
           imageIds: sentenceBar.map(img => img.id)
         })
       })
-    } catch (error) {
-      console.error("Error logging sequence:", error)
+
+      let json: any = null
+      try { json = await res.json() } catch (e) { /* sem body */ }
+
+      if (!res.ok) {
+        const errMsg = json?.message || json?.error || `Erro ao registrar sequência (status ${res.status})`
+        throw new Error(errMsg)
+      }
+
+      // Debug: log server response
+      console.log("sequence created:", json)
+
+      // Dispara evento global para atualizar Dashboard/Reports
+      try {
+        window.dispatchEvent(new CustomEvent("sequenceCreated", { detail: { childId: child.id, sequence: json } }))
+      } catch (e) {
+        console.warn("Could not dispatch sequenceCreated event:", e)
+      }
+
+    } catch (error: any) {
+      console.error("Erro ao logar sequence:", error)
+      alert(error?.message || "Erro ao registrar a comunicação.")
+    } finally {
+      // fala (independente do resultado do registro, mantém o tts)
+      if (tts) tts.speak(sentence, 0.9)
+      setTimeout(() => setSpeaking(false), sentence.length * 100 + 1000)
     }
-    
-    tts.speak(sentence, 0.9)
-    
-    setTimeout(() => setSpeaking(false), sentence.length * 100 + 1000)
   }
 
   const renderCategoryIcon = (category: Category, sizeClass: string = "h-12 w-12") => {

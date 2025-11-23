@@ -74,6 +74,14 @@ export function DashboardContent({ session }: DashboardContentProps) {
   useEffect(() => {
     fetchChildren()
     fetchCategories()
+
+    // Listener para atualizar quando uma nova sequência é registrada
+    const onSequenceCreated = () => {
+      fetchChildren() // recarrega contadores
+    }
+
+    window.addEventListener("sequenceCreated", onSequenceCreated)
+    return () => window.removeEventListener("sequenceCreated", onSequenceCreated)
   }, [])
 
   const fetchChildren = async () => {
