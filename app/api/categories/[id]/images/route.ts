@@ -8,14 +8,13 @@ export async function GET(
   try {
     const categoryId = params.id
 
-    // Buscar imagens da categoria
     const images = await prisma.image.findMany({
       where: {
-        categoryId: categoryId,
+        categoryId,
         isActive: true
       },
       orderBy: {
-        order: 'asc'
+        order: "asc"
       },
       include: {
         category: {
@@ -71,7 +70,7 @@ export async function POST(
     // Obter a ordem máxima atual na categoria
     const maxOrder = await prisma.image.findFirst({
       where: { categoryId },
-      orderBy: { order: 'desc' },
+      orderBy: { order: "desc" },
       select: { order: true }
     })
 
@@ -80,9 +79,9 @@ export async function POST(
       data: {
         name,
         imageUrl,
-        audioUrl,
+        audioUrl: audioUrl ?? null,
         categoryId,
-        order: (maxOrder?.order || 0) + 1,
+        order: (maxOrder?.order ?? 0) + 1,
         isCustom: true,
         isActive: true
       },

@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import { AAC_Interface } from "@/components/aac-interface"
+import { isChildRole, normalizeRole } from "@/lib/roles" // import das helpers
 
 interface AAC_PageProps {
   params: { childId: string }
@@ -17,10 +18,11 @@ export default async function AAC_Page({ params }: AAC_PageProps) {
   }
 
   const userId = session.user.id
-  const role = (session.user as any)?.role
+  const roleRaw = (session.user as any)?.role
+  const role = normalizeRole(roleRaw) // normaliza para canonical ("child", "caregiver", ...)
 
   // Se for criança, verifica se é a própria criança
-  if (role === "CRIANCA") {
+  if (isChildRole(role)) {
     if (userId !== params.childId) {
       notFound()
     }
@@ -43,7 +45,7 @@ export default async function AAC_Page({ params }: AAC_PageProps) {
       <AAC_Interface
         child={child}
         userId={userId}
-        role={role}
+        role={roleRaw} // passa o role original se quiser manter compatibilidade
       />
     )
   }
@@ -75,7 +77,7 @@ export default async function AAC_Page({ params }: AAC_PageProps) {
     <AAC_Interface
       child={childAccess.child}
       userId={userId}
-      role={role}
+      role={roleRaw}
     />
   )
-}
+}                    

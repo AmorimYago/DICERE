@@ -1,4 +1,3 @@
-// components/aac-interface.tsx
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -20,6 +19,8 @@ import Link from "next/link"
 import { tts } from "@/lib/tts"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
+import { normalizeRole, isChildRole } from "@/lib/roles"
+import { signOut } from "next-auth/react" // <<-- ADICIONADO
 
 interface Child {
   id: string
@@ -183,6 +184,9 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
     )
   }
 
+  // Normaliza a role recebida para checagens visuais/permisionais
+  const normalizedRole = normalizeRole(role)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header with Sentence Bar */}
@@ -192,7 +196,7 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center space-x-4">
               {/* Esconde o botão Dashboard se for criança */}
-              {role !== "CRIANCA" && (
+              {!isChildRole(normalizedRole) && (
                 <Link href="/dashboard">
                   <Button variant="outline" size="sm" className="border-gray-300 hover:bg-gray-50">
                     <Home className="h-4 w-4 mr-2" />
@@ -228,16 +232,18 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
               )}
 
               {/* Botão Sair do Modo Criança */}
-              {role === "CRIANCA" && (
+              {isChildRole(normalizedRole) && (
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch("/api/child-access/exit", { method: "POST" });
-                      if (!res.ok) throw new Error("Falha ao sair do modo criança");
-                      window.location.href = "/";
+                      // Limpa o cookie de modo criança (opcional)
+                      await fetch("/api/child-access/exit", { method: "POST" })
+
+                      // Encerra a sessão do NextAuth e redireciona
+                      await signOut({ callbackUrl: "http://localhost:3001" })
                     } catch (err) {
-                      console.error(err);
-                      alert("Erro ao sair do modo criança.");
+                      console.error("Erro ao sair do modo criança / encerrar sessão:", err)
+                      alert("Erro ao sair. Tente novamente.")
                     }
                   }}
                   className="ml-2 px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium hover:bg-red-200 transition flex items-center"

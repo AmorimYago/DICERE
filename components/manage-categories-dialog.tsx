@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useRouter } from "next/navigation"
 
 interface Category {
   id: string
@@ -68,6 +69,7 @@ const COLOR_OPTIONS = [
 ]
 
 export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDialogProps) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
@@ -255,60 +257,56 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
     setPreviewUrl(null)
   }
 
-  const handleDelete = async () => {
-    if (!deletingCategory) return
+const handleDelete = async () => {
+  if (!deletingCategory) return
 
-    setIsDeleting(true)
+  setIsDeleting(true)
 
-    try {
-      // Chamada ao backend (inclui credenciais)
-      const response = await fetch(`/api/categories/${deletingCategory.id}`, {
-        method: "DELETE",
-        credentials: "include"
-      })
+  try {
+    const response = await fetch(`/api/categories/${deletingCategory.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
 
-      // Tenta decodificar JSON (se houver)
-      let result: any = null
-      try {
-        result = await response.json()
-      } catch (e) {
-        // sem body JSON
-      }
+    let result: any = null
+    try { result = await response.json() } catch (e) { /* sem body */ }
 
-      console.log("[DEBUG] DELETE /api/categories response:", response.status, result)
-
-      if (!response.ok || (result && result.success === false)) {
-        const message = result?.message || result?.error || `Erro ao deletar (status ${response.status})`
-        throw new Error(message)
-      }
-
-      // Atualiza o state local somente após confirmação do servidor
-      setCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
-
-      toast({
-        title: "Sucesso!",
-        description: result?.message || "Categoria deletada com sucesso"
-      })
-
-      // Fecha o modal de confirmação
-      setDeletingCategory(null)
-
-      // Notifica pai se necessário
-      onCategoryCreated?.()
-
-      // (Opcional) garantir consistência, forçar re-fetch:
-      // await fetchCategories()
-    } catch (error: any) {
-      console.error("Erro ao deletar categoria:", error)
-      toast({
-        title: "Erro",
-        description: error?.message || "Erro ao deletar categoria",
-        variant: "destructive"
-      })
-    } finally {
-      setIsDeleting(false)
+    if (!response.ok || (result && result.success === false)) {
+      const message = result?.message || result?.error || `Erro ao deletar (status ${response.status})`
+      throw new Error(message)
     }
+
+    // Atualiza state local
+    setCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
+
+    toast({
+      title: "Sucesso!",
+      description: result?.message || "Categoria deletada com sucesso"
+    })
+
+    // Fecha o modal de confirmação e qualquer modal aberto
+    setDeletingCategory(null)
+    setOpen(false) // fecha o Dialog principal (se estiver aberto)
+
+    // Notifica o pai se necessário
+    onCategoryCreated?.()
+
+    // Dá um pequeno delay pra garantir que overlays/portais removam-se do DOM
+    await new Promise((res) => setTimeout(res, 200))
+
+    // Força reload completo -> equivalente ao F5
+    window.location.reload()
+  } catch (error: any) {
+    console.error("Erro ao deletar categoria:", error)
+    toast({
+      title: "Erro",
+      description: error?.message || "Erro ao deletar categoria",
+      variant: "destructive"
+    })
+  } finally {
+    setIsDeleting(false)
   }
+}
 
   return (
     <>

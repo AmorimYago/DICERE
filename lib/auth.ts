@@ -74,6 +74,11 @@ export const authOptions: NextAuthOptions = {
         // normaliza roles legadas (ex.: CRIANCA -> child, PAI -> caregiver)
         token.role = normalizeRole((user as any).role)
         token.parentId = (user as any).parentId
+
+        // Se o usuário que fez login for uma criança, garanta childId no token
+        if ((token.role as string) === "child") {
+          token.childId = user.id
+        }
       }
       return token
     },
@@ -83,6 +88,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string
         ;(session.user as any).role = token.role as string
         ;(session.user as any).parentId = token.parentId as string | undefined
+        ;(session.user as any).childId = token.childId as string | undefined
       }
       return session
     }

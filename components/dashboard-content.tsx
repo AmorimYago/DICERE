@@ -302,10 +302,17 @@ export function DashboardContent({ session }: DashboardContentProps) {
                             <Activity className="h-4 w-4" />
                             <span>{child._count.sequences} comunicações</span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>{child._count.reports} relatórios</span>
-                          </div>
+
+                          {child._count.reports > 0 ? (
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {child._count.reports} relatório{child._count.reports > 1 ? "s" : ""}
+                              </span>
+                            </div>
+                          ) : (
+                            <div />
+                          )}
                         </div>
                         
                         <div className="flex flex-wrap gap-1">
