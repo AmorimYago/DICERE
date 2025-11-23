@@ -13,7 +13,8 @@ import {
   Play,
   RotateCcw,
   MessageCircle,
-  Heart
+  Heart,
+  LogOut
 } from "lucide-react"
 import Link from "next/link"
 import { tts } from "@/lib/tts"
@@ -224,6 +225,26 @@ export function AAC_Interface({ child, userId, role = "PAI" }: AAC_InterfaceProp
                   alt={child.name}
                   className="h-10 w-10 rounded-full object-cover border-2 border-blue-200"
                 />
+              )}
+
+              {/* Botão Sair do Modo Criança */}
+              {role === "CRIANCA" && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/child-access/exit", { method: "POST" });
+                      if (!res.ok) throw new Error("Falha ao sair do modo criança");
+                      window.location.href = "/";
+                    } catch (err) {
+                      console.error(err);
+                      alert("Erro ao sair do modo criança.");
+                    }
+                  }}
+                  className="ml-2 px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium hover:bg-red-200 transition flex items-center"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Sair
+                </button>
               )}
             </div>
           </div>

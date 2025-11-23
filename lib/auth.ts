@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
 import type { NextAuthOptions } from "next-auth"
+import { normalizeRole } from "./roles" // ajuste o path conforme sua estrutura
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -36,7 +37,7 @@ export const authOptions: NextAuthOptions = {
             id: user.id,
             name: user.name ?? undefined,
             email: user.email,
-            role: user.role ?? "PAI"
+            role: user.role ?? "caregiver" // agora em inglês
           } as any
         }
 
@@ -59,7 +60,7 @@ export const authOptions: NextAuthOptions = {
           id: child.id,
           name: child.name,
           email: undefined,
-          role: "CRIANCA",
+          role: "child", // agora em inglês
           parentId: childAccess?.userId // id do pai/cuidador vinculado
         } as any
       }
@@ -70,7 +71,8 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.name = user.name
-        token.role = (user as any).role
+        // normaliza roles legadas (ex.: CRIANCA -> child, PAI -> caregiver)
+        token.role = normalizeRole((user as any).role)
         token.parentId = (user as any).parentId
       }
       return token

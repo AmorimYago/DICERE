@@ -73,6 +73,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
   const [loading, setLoading] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
 
   // Form state
@@ -98,7 +99,9 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
   const fetchCategories = async () => {
     try {
       setLoading(true)
-      const response = await fetch("/api/categories")
+      const response = await fetch("/api/categories", {
+        credentials: "include"
+      })
       if (response.ok) {
         const data = await response.json()
         setCategories(data)
@@ -127,6 +130,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formDataF,
+        credentials: "include"
       })
 
       if (!response.ok) {
@@ -164,7 +168,8 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
             color: formData.color,
             description: formData.description,
             imageUrl: formData.imageUrl
-          })
+          }),
+          credentials: "include"
         })
 
         if (!response.ok) {
@@ -184,7 +189,8 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
           body: JSON.stringify({
             ...formData,
             name: formData.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
-          })
+          }),
+          credentials: "include"
         })
 
         if (!response.ok) {
@@ -252,33 +258,55 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
   const handleDelete = async () => {
     if (!deletingCategory) return
 
+    setIsDeleting(true)
+
     try {
-      setLoading(true)
+      // Chamada ao backend (inclui credenciais)
       const response = await fetch(`/api/categories/${deletingCategory.id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        credentials: "include"
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erro ao deletar categoria")
+      // Tenta decodificar JSON (se houver)
+      let result: any = null
+      try {
+        result = await response.json()
+      } catch (e) {
+        // sem body JSON
       }
+
+      console.log("[DEBUG] DELETE /api/categories response:", response.status, result)
+
+      if (!response.ok || (result && result.success === false)) {
+        const message = result?.message || result?.error || `Erro ao deletar (status ${response.status})`
+        throw new Error(message)
+      }
+
+      // Atualiza o state local somente após confirmação do servidor
+      setCategories(prev => prev.filter(c => c.id !== deletingCategory.id))
 
       toast({
         title: "Sucesso!",
-        description: "Categoria deletada com sucesso"
+        description: result?.message || "Categoria deletada com sucesso"
       })
 
+      // Fecha o modal de confirmação
       setDeletingCategory(null)
-      fetchCategories()
+
+      // Notifica pai se necessário
       onCategoryCreated?.()
+
+      // (Opcional) garantir consistência, forçar re-fetch:
+      // await fetchCategories()
     } catch (error: any) {
+      console.error("Erro ao deletar categoria:", error)
       toast({
         title: "Erro",
-        description: error.message,
+        description: error?.message || "Erro ao deletar categoria",
         variant: "destructive"
       })
     } finally {
-      setLoading(false)
+      setIsDeleting(false)
     }
   }
 
@@ -530,7 +558,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleEdit(category)}
-                                disabled={loading}
+                                disabled={loading || isDeleting}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -538,7 +566,7 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => setDeletingCategory(category)}
-                                disabled={loading}
+                                disabled={loading || isDeleting}
                                 className="text-destructive hover:text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -557,7 +585,9 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
       </Dialog>
 
       {/* Dialog de Confirmação de Exclusão */}
-      <AlertDialog open={!!deletingCategory} onOpenChange={() => setDeletingCategory(null)}>
+      <AlertDialog open={!!deletingCategory} onOpenChange={(open) => {
+        if (!open) setDeletingCategory(null)
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
@@ -573,13 +603,13 @@ export function ManageCategoriesDialog({ onCategoryCreated }: ManageCategoriesDi
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={loading}
+              disabled={isDeleting}
             >
-              Deletar
+              {isDeleting ? 'Deletando...' : 'Deletar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
