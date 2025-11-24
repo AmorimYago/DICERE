@@ -16,7 +16,6 @@ export default async function ReportsPage({ params }: ReportsPageProps) {
     redirect("/login")
   }
 
-  // Verify user has access to this child
   const childAccess = await prisma.childAccess.findUnique({
     where: {
       userId_childId: {

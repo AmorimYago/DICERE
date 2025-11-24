@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -97,32 +96,101 @@ interface ReportsInterfaceProps {
 export function ReportsInterface({ child, userId }: ReportsInterfaceProps) {
   const [reportData, setReportData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(false)
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [startDate, setStartDate] = useState<string>("")
+const [endDate, setEndDate] = useState<string>("")
   const [selectedSequence, setSelectedSequence] = useState<string | null>(null)
   const [newComment, setNewComment] = useState("")
   const [addingComment, setAddingComment] = useState(false)
   const [commentSuccess, setCommentSuccess] = useState(false)
 
+  // Paginação no frontend
+  const [page, setPage] = useState<number>(1)
+  const pageSize = 10
+
+  // Flag para evitar refetch repetido tentando pegar "tudo"
+  const [didRequestAll, setDidRequestAll] = useState(false)
+
   useEffect(() => {
+    setPage(1) // resetar pagina ao mudar período
     fetchReport()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate])
 
   const fetchReport = async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({
-        startDate,
-        endDate
-      })
-      
-      const response = await fetch(`/api/reports/${child.id}?${params}`)
-      if (response.ok) {
-        const data = await response.json()
+      const baseParams = new URLSearchParams({ startDate, endDate })
+      // 1) fetch inicial (padrão)
+      const initialResp = await fetch(`/api/reports/${child.id}?${baseParams}`)
+      if (!initialResp.ok) {
+        console.error("Erro HTTP ao buscar relatório:", initialResp.status)
+        setLoading(false)
+        return
+      }
+
+      const initialData = await initialResp.json()
+      console.log("[REPORT] initialData:", initialData)
+
+      // guarda o que veio
+      let data = initialData as ReportData
+
+      // totalReport pode vir em summary.totalSequences ou em um campo total
+      let reportedTotal = data?.summary?.totalSequences ?? (data as any).total ?? null
+      const returnedCount = Array.isArray(data?.sequences) ? data.sequences.length : 0
+
+      // Se o servidor já retornou tudo, usa diretamente
+      if (reportedTotal == null || reportedTotal <= returnedCount) {
+        setReportData(data)
+        setDidRequestAll(true)
+        setLoading(false)
+        return
+      }
+
+      // Caso o servidor indique mais itens do que retornou, tenta buscar por paginação
+      // Tentaremos usar page & pageSize. pageSize inicializamos em 50 para reduzir requisições, mas respeite limite razoável.
+      const pageSizeFetch = 50
+      let collected = data.sequences ? [...data.sequences] : []
+      let currentPage = 1
+      const maxLoops = 100 // limite de segurança
+
+      // se a resposta inicial já veio paginada (ex: retornou page info), ajusta page inicial
+      // Agora iniciamos o loop para buscar páginas até coletar reportedTotal ou até não receber mais items.
+      while ((reportedTotal === null || collected.length < reportedTotal) && currentPage < maxLoops) {
+        currentPage++
+        const params = new URLSearchParams({ startDate, endDate, page: String(currentPage), pageSize: String(pageSizeFetch) })
+        const resp = await fetch(`/api/reports/${child.id}?${params}`)
+        if (!resp.ok) {
+          console.warn(`[REPORT] falha ao buscar página ${currentPage}:`, resp.status)
+          break
+        }
+        const pageData = await resp.json()
+        console.log(`[REPORT] page ${currentPage} data:`, pageData)
+        const pageItems = Array.isArray(pageData.sequences) ? pageData.sequences : []
+        if (pageItems.length === 0) break
+        collected = collected.concat(pageItems)
+
+        // se o endpoint responder um total atualizado, use-o
+        const pageReportedTotal = pageData?.summary?.totalSequences ?? (pageData as any).total ?? reportedTotal
+        if (pageReportedTotal != null) {
+          // atualiza reportedTotal caso venha diferente
+          reportedTotal = pageReportedTotal
+        }
+
+        // proteção: se já pegamos mais que 2000 itens paramos (evitar loop infinito)
+        if (collected.length > 2000) break
+      }
+
+      // se conseguimos coletar algo extra, atualiza reportData com as sequências completas
+      if (collected.length > returnedCount) {
+        const newData = { ...data, sequences: collected }
+        setReportData(newData)
+      } else {
+        // não conseguimos mais itens, mantemos o que veio
         setReportData(data)
       }
-    } catch (error) {
-      console.error("Error fetching report:", error)
+      setDidRequestAll(true)
+    } catch (err) {
+      console.error("Erro fetching report:", err)
     } finally {
       setLoading(false)
     }
@@ -145,6 +213,8 @@ export function ReportsInterface({ child, userId }: ReportsInterfaceProps) {
         setCommentSuccess(true)
         setTimeout(() => setCommentSuccess(false), 3000)
         // Refresh report to show new comment
+        // também resetamos a flag para garantir que, se faltar itens, tentamos recarregar tudo novamente
+        setDidRequestAll(false)
         fetchReport()
       }
     } catch (error) {
@@ -178,6 +248,14 @@ Gerado pelo AAC Comunicador`
   const formatDateTime = (dateString: string) => {
     return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   }
+
+  // Paginação: calcula as sequências a exibir na página atual
+  const paginatedSequences = reportData?.sequences
+    ? reportData.sequences.slice((page - 1) * pageSize, page * pageSize)
+    : []
+
+  const totalSequencesCount = reportData?.summary?.totalSequences ?? (reportData?.sequences?.length ?? 0)
+  const totalPages = Math.max(1, Math.ceil(totalSequencesCount / pageSize))
 
   if (!reportData && !loading) {
     return (
@@ -264,7 +342,7 @@ Gerado pelo AAC Comunicador`
               </div>
               <div className="flex items-end">
                 <Button 
-                  onClick={fetchReport} 
+                  onClick={() => { setDidRequestAll(false); fetchReport() }} 
                   disabled={loading}
                   className="w-full sm:w-auto"
                 >
@@ -409,7 +487,7 @@ Gerado pelo AAC Comunicador`
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {reportData?.sequences.map((sequence) => (
+                    {paginatedSequences.map((sequence) => (
                       <div key={sequence.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                         <div className="flex justify-between items-start mb-3">
                           <div className="text-sm text-gray-600">
@@ -535,6 +613,27 @@ Gerado pelo AAC Comunicador`
                         </AnimatePresence>
                       </div>
                     ))}
+
+                    {/* Controles de paginação */}
+                    {totalSequencesCount > pageSize && (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-gray-600">
+                          Mostrando {Math.min((page - 1) * pageSize + 1, totalSequencesCount)} - {Math.min(page * pageSize, totalSequencesCount)} de {totalSequencesCount}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Anterior</Button>
+                          <div className="text-sm">{page} / {totalPages}</div>
+                          <Button size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Próxima</Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Se o backend reporta mais itens no total mas não foi possível trazer todos, permite tentar carregar tudo manualmente */}
+                    {reportData && reportData.summary.totalSequences > (reportData.sequences?.length ?? 0) && (
+                      <div className="mt-4 text-sm text-yellow-700">
+                        Observação: O servidor indica {reportData.summary.totalSequences} comunicações, mas apenas {reportData.sequences.length} foram retornadas. <Button variant="ghost" size="sm" onClick={() => { setDidRequestAll(false); fetchReport(); }}>Tentar carregar todas</Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

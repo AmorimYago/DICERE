@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
-// Tipo local representando o retorno do prisma.sequence.findMany com include dos items+image
 type SequenceWithItems = {
   id: string
   childId: string
@@ -51,6 +50,11 @@ export async function GET(
     const url = new URL(request.url)
     const startDate = url.searchParams.get('startDate')
     const endDate = url.searchParams.get('endDate')
+    const pageStr = url.searchParams.get('page')
+    const pageSizeStr = url.searchParams.get('pageSize')
+
+    const page = pageStr ? Math.max(1, parseInt(pageStr, 10)) : undefined
+    const pageSize = pageSizeStr ? Math.max(1, Math.min(100, parseInt(pageSizeStr, 10))) : undefined
 
     // Verify user has access to this child
     const childAccess = await prisma.childAccess.findUnique({
@@ -89,7 +93,29 @@ export async function GET(
       }
     }
 
-    // Fetch sequences for the period
+    // Contagem total (independente de paginação)
+    const totalSequences = await prisma.sequence.count({
+      where: {
+        childId,
+        ...dateFilter
+      }
+    })
+
+    // Configura paginação
+    let skip: number | undefined = undefined
+    let take: number | undefined = undefined
+
+    if (page && pageSize) {
+      skip = (page - 1) * pageSize
+      take = pageSize
+    } else if (pageSize) {
+      take = pageSize
+    } else {
+      // Se não pediu paginação, traz tudo (com limite de segurança)
+      take = Math.min(totalSequences, 2000)
+    }
+
+    // Fetch sequences para o período/paginação
     const sequences = (await prisma.sequence.findMany({
       where: {
         childId,
@@ -126,11 +152,12 @@ export async function GET(
           orderBy: { createdAt: 'asc' }
         }
       },
-      orderBy: { timestamp: 'desc' }
+      orderBy: { timestamp: 'desc' },
+      skip,
+      take
     })) as SequenceWithItems[]
 
-    // Generate statistics
-    const totalSequences = sequences.length
+    // Generate statistics (com base nas sequences retornadas)
     const totalImages = sequences.reduce(
       (total: number, seq: SequenceWithItems) => total + seq.items.length,
       0
@@ -195,7 +222,7 @@ export async function GET(
 
     return NextResponse.json({
       summary: {
-        totalSequences,
+        totalSequences, // ✅ Total real (independente da paginação)
         totalImages,
         totalComments,
         averageSequenceLength: totalSequences > 0 ? Math.round(totalImages / totalSequences * 10) / 10 : 0
@@ -203,7 +230,7 @@ export async function GET(
       mostUsedWords,
       categoryUsage,
       dailyBreakdown,
-      sequences, // Note: Dates will be serialized to ISO strings in JSON
+      sequences, // ✅ Sequences paginadas (ou todas se não houver paginação)
       period: {
         startDate: startDate || 'N/A',
         endDate: endDate || startDate || 'N/A'
