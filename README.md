@@ -1,8 +1,10 @@
 # 🎯 DICERE - Comunicação para Crianças Autistas
 
 <div align="center">
-  <img src="public/dicere-logo.jpeg" alt="DICERE Logo" width="200"/>
+  <img src="public/dicere-logo.jpg" alt="DICERE Logo" width="200"/>
   
+  **DICERE**
+
   **Sistema de Comunicação Alternativa e Aumentativa (AAC)**
   
   Desenvolvido especialmente para crianças autistas e suas famílias
@@ -129,7 +131,7 @@ Edite o arquivo `.env` com suas configurações:
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/dicere"
-NEXTAUTH_URL="http://localhost:3001"
+NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="<gerar-com-openssl-rand-base64-32>"
 # Opicional
 AWS_REGION="us-east-1"
@@ -154,7 +156,7 @@ npx prisma db seed
 npm run dev
 ```
 
-Acesse: [http://localhost:3001](http://localhost:3001)
+Acesse: [http://localhost:3000](http://localhost:3000)
 
 ## 👥 Tipos de Usuário
 

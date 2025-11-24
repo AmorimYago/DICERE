@@ -1,4 +1,3 @@
-// app/login/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -64,7 +63,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-bold text-gray-900">AAC Comunicador</CardTitle>
+            <CardTitle className="text-3xl font-bold text-gray-900">DICERE</CardTitle>
             <CardDescription className="text-lg text-gray-600">
               Comunicação para Crianças Autistas
             </CardDescription>

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "DICERE",
     images: [
       {
-        url: "/dicere-logo.jpeg",
+        url: "/dicere-logo.jpg",
         width: 1200,
         height: 630,
         alt: "DICERE - Interface de comunicação com ícones coloridos para crianças autistas",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "DICERE - Comunicação para Crianças Autistas",
     description: "Aplicativo de comunicação alternativa e aumentativa (AAC) especialmente desenvolvido para crianças autistas",
-    images: ["/dicere-logo.jpeg"],
+    images: ["/dicere-logo.jpg"],
   },
   robots: {
     index: true,
