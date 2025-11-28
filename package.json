@@ -9,7 +9,7 @@
     "seed:categories": "tsx scripts/seed-categories.ts"
   },
   "prisma": {
-    "seed": "tsx --require dotenv/config scripts/seed.ts"
+    "seed": "tsx --require dotenv/config scripts/update-categories.ts"
   },
   "devDependencies": {
     "@next/swc-wasm-nodejs": "13.5.1",

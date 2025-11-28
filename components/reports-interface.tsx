@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   BarChart3, 
   ArrowLeft, 
@@ -29,6 +28,7 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
+import { Alert, AlertDescription } from "@/components/ui/alert" // Mantenho este import, embora não estivesse no topo no código que você enviou, ele é usado abaixo.
 
 interface Child {
   id: string
@@ -230,10 +230,25 @@ const [endDate, setEndDate] = useState<string>("")
   }
 
   const shareByEmail = () => {
+    // FUNÇÃO CORRIGIDA AQUI
+    const formatDateSafely = (dateString: string): string => {
+      // Tenta criar um objeto Date
+      const date = new Date(dateString);
+      
+      // Verifica se a string não está vazia E se a data é válida (getTime() retorna NaN se for inválida)
+      if (dateString && !isNaN(date.getTime())) {
+        return format(date, 'dd/MM/yyyy', { locale: ptBR });
+      }
+      return 'Não Especificado';
+    };
+
+    const formattedStartDate = formatDateSafely(startDate);
+    const formattedEndDate = formatDateSafely(endDate);
+
     const subject = `Relatório de Comunicação - ${child.name}`
     const body = `Relatório de comunicação AAC para ${child.name}
     
-Período: ${format(new Date(startDate), 'dd/MM/yyyy', { locale: ptBR })} - ${format(new Date(endDate), 'dd/MM/yyyy', { locale: ptBR })}
+Período: ${formattedStartDate} - ${formattedEndDate}
 
 Resumo:
 - Total de comunicações: ${reportData?.summary.totalSequences || 0}
